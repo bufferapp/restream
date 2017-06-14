@@ -30,17 +30,22 @@ def decode(input_data):
 @click.argument('bucket', type=str)
 @click.argument('key', type=str)
 @click.argument('stream', type=str)
-@click.option('-sd', '--start')
-@click.option('-ed', '--end')
-@click.option('-d', '--delimiter')
-@click.option('-y', '--yes', default=True, is_flag=True)
-def main(bucket, key, stream, start, end, delimiter, yes):
+@click.option('-sd', '--start', help='Start date. Up to hour precision')
+@click.option('-ed', '--end', help='End date. Up to hour precision')
+@click.option('-y', '--yes', default=True, is_flag=True,
+              help='Skip confirmation')
+@click.option('-d', '--delimiter', help='Delimiter of Firehose records in S3')
+def restream(bucket, key, stream, start, end, yes, delimiter):
+    """Replay saved Firehose Streams into Kinesis streams.
+
+    The data in the KEY path inside the BUCKET will be sent to STREAM.
+    """
 
     # Instanciate Kinesis Producer
     kinesis_config = dict(
         aws_region='us-east-1',
-        buffer_size_limit=100000,
-        buffer_time_limit=2,
+        buffer_size_limit=1,
+        buffer_time_limit=1,
         kinesis_concurrency=1,
         kinesis_max_retries=10,
         record_delimiter=b'\n',
@@ -88,13 +93,19 @@ def main(bucket, key, stream, start, end, delimiter, yes):
 
             data = decode(object_data)
 
-            # TODO: Split properly!
-            records = data.split(delimiter)
+            if delimiter:
+                records = data.split(delimiter)
+            else:
+                records = data.splitlines()
 
             # Send the individual records to Kinesis
-            label = 'Sending {} records:'.format(s3_object.get('Key'))
+            object_name = s3_object.get('Key').split('/')[-1]
+            label = 'Sending {} records:'.format(object_name)
             with click.progressbar(records, label=label) as bar:
                 for record in bar:
+                    if not record:
+                        click.echo('Empty record!')
+                        continue
                     producer.send(record.encode())
 
         producer.close()
