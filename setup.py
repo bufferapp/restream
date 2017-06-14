@@ -15,7 +15,7 @@ setup(
     install_requires=requirements,
     entry_points={
         'console_scripts': [
-            'restream=restream:main'
+            'restream=restream:restream'
         ]
     }
 )
