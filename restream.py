@@ -84,7 +84,7 @@ def restream(bucket, key, stream, start, end, yes, delimiter):
 
         for s3_object in contents:
             object_response = s3.get_object(
-                Bucket='buffer-data',
+                Bucket=bucket,
                 Key=s3_object.get('Key')
             )
 
